@@ -1,0 +1,52 @@
+
+import tensorflow as tf
+import dlib
+import cv2
+import os
+import numpy as np
+from PIL import Image, ImageChops, ImageEnhance
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
+model = load_model('/content/drive/My Drive/project/deepfake_model.h5')
+input_shape = (128, 128, 3)
+pr_data = []
+detector = dlib.get_frontal_face_detector()
+
+from flask import *
+
+app = Flask(_name_)
+
+
+@app.route('/')
+def upload():
+    return render_template("file.html")
+
+
+@app.route('/success', methods=['POST'])
+def success():
+    if request.method == 'POST':
+        f = request.files['file']
+        cap = cv2.VideoCapture(f)
+        frameRate = cap.get(5)
+        while cap.isOpened():
+            frameId = cap.get(1)
+            ret, frame = cap.read()
+            if ret != True:
+                break
+            if frameId % ((int(frameRate) + 1) * 1) == 0:
+                face_rects, scores, idx = detector.run(frame, 0)
+                for i, d in enumerate(face_rects):
+                    x1 = d.left()
+                    y1 = d.top()
+                    x2 = d.right()
+                    y2 = d.bottom()
+                    crop_img = frame[y1:y2, x1:x2]
+                    data = img_to_array(cv2.resize(crop_img, (128, 128))).flatten() / 255.0
+                    data = data.reshape(-1, 128, 128, 3)
+                    print(model.predict_classes(data))
+        f.save(f.filename)
+        return render_template("success.html", name=f.filename)
+
+
+if _name_ == '_main_':
+    app.run(debug=True)
